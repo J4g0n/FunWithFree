@@ -5,7 +5,7 @@ import interpreters._
 
 object App {
   def main(args: Array[String]) = {
-    val actions = for {
+   /* val actions = for {
         _ <- open
         message <- write("Hello ")
         _ <- read
@@ -19,6 +19,8 @@ object App {
 
 
     stringInterpreter.interpret[Unit](actions)
-    ioInterpreter.interpret[Unit]("C:\\Users\\ipi\\Desktop\\exercicesScala\\file.txt")(actions)
+    ioInterpreter.interpret[Unit]("C:\\Users\\ipi\\Desktop\\exercicesScala\\file.txt")(actions)*/
+
+
   }
 }
