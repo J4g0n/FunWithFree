@@ -1,6 +1,7 @@
 package genericList
 
 import cats.Functor
+import cats.data.Func
 
 
 // code borrowed from:
@@ -26,7 +27,7 @@ object GenericList {
 }
 
 
-sealed trait FuncF[+Next, -F]
+/*sealed trait FuncF[+Next, -F]
 object FuncF {
   case object Id extends FuncF[Nothing, Nothing]
   case class Expr[T, Next](t: T, rest: Next) extends FuncF[Next, T]
@@ -35,7 +36,7 @@ object GenericFunc {
   def id[A]: Fix[FuncF[+?, A], A] = Fix.In[FuncF[+?, A], A] (FuncF.Id[A])
   def expr[A](t: A, rest: Fix[FuncF[+?, A], A]): Fix[FuncF[+?, A], A] =
     Fix.In[FuncF[+?, A], A] (FuncF.Expr(t, rest))
-}
+}*/
 
 
 object FunctionOps {
@@ -65,11 +66,16 @@ object UnaryFunc {
 }
 
 // here we use next that should be FuncList itself we are going to try to try to use it with Fix point defined above
-sealed trait FuncList[-S, +T, Next]
-object FuncList {
-  case object NilFuncList extends FuncList[Nothing, Nothing, Nothing]
-  case class BottomFuncList[A](a: A) extends FuncList[A, Nothing, Nothing] // should express calculus that can fail
-  case class FuncList[A, B](a: A, b: B) extends FuncList[A, B, Nothing]
+sealed trait FuncListF[+Next, Function1[-S, +T]]
+object FuncListF {
+  case object NilFuncList extends FuncListF[Nothing, Nothing]
+  case class PrependFunc[A, B, Next](f: A => B, next: Next) extends FuncListF[Next, A => B]
+}
+object GenericFunc {
+  def prependFunc[A, B](f: A => B, next: Fix[FuncListF[+?, B => _], B => _])
+    : Fix[FuncListF[+?, A => B], A => B] =
+      Fix.In[FuncListF[+?, A => B], A => B] (FuncListF.PrependFunc(f, next))
+  def nil[A]: Fix[FuncListF[A, ?], A] = Fix.In[FuncListF[A, ?], A] (FuncListF.NilFuncList[A])
 }
 
 
