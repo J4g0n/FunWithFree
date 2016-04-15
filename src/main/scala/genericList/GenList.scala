@@ -66,16 +66,33 @@ object UnaryFunc {
 }
 
 // here we use next that should be FuncList itself we are going to try to try to use it with Fix point defined above
-sealed trait FuncListF[+Next, Function1[-S, +T]]
+/*sealed trait FuncListF[+Next, Function1[-S, +T]]
 object FuncListF {
   case object NilFuncList extends FuncListF[Nothing, Nothing]
   case class PrependFunc[A, B, Next](f: A => B, next: Next) extends FuncListF[Next, A => B]
 }
 object GenericFunc {
+  def nil[A]: Fix[FuncListF[A, ?], A] = Fix.In[FuncListF[A, ?], A] (FuncListF.NilFuncList[A])
   def prependFunc[A, B](f: A => B, next: Fix[FuncListF[+?, B => _], B => _])
     : Fix[FuncListF[+?, A => B], A => B] =
       Fix.In[FuncListF[+?, A => B], A => B] (FuncListF.PrependFunc(f, next))
-  def nil[A]: Fix[FuncListF[A, ?], A] = Fix.In[FuncListF[A, ?], A] (FuncListF.NilFuncList[A])
+}*/
+
+
+
+
+
+// F is the first or front type, ie the type cons operand must match to be able to cons stuff to funclist
+object Proof {
+  case class MatchFront[A, F](implicitly: A =:= F)
+  def matchFront[A, B, F](implicit func: A => B, front: F) = { MatchFront[A, F] }
 }
+
+sealed trait HFuncList[F]{ type Front = F }
+case class HFuncNil[F] extends HFuncList[F]
+case class HFuncCons[A, B, C, +Next <: HFuncList](f: A => B, next: Next)
+  (implicit funcMatchFrontType: Proof.MatchFront[B, Next#Front]) /* define implicit here that proves Next front type matches B type */
+  extends HFuncList[A]
+
 
 
