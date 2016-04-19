@@ -100,7 +100,7 @@ sealed trait Comparison {
   type gt = Match[False, False, True, Bool]
   type ge = Match[False, True, True, Bool]
   type lt = Match[True, True, False, Bool]
-  type le = Match[False, False, True, Bool]
+  type le = Match[True, False, False, Bool]
   type eq = Match[False, True, False, Bool]
 }
 sealed trait GT extends Comparison {
@@ -167,6 +167,21 @@ object Nat {
   type Mult[N <: Nat, M <: Nat] = N#FoldR[_0, Nat, Sum[M]]
 
   // todo implement factorial
+  type Prod = Fold[Nat, Nat] {
+    type Apply[A <: Nat, Acc <: Nat] = A Mult Acc
+  }
+  type Fact[N <: Nat] = N#FoldR[_1, Nat, Prod]
+
+  type ProdExp[By <: Nat] = Fold[Nat, Nat] {
+    type Apply[A <: Nat, B <: Nat] = By Mult B
+  }
+  type Exp[N <: Nat, E <: Nat] = E#FoldR[_1, Nat, ProdExp[N]]
+
+  type ModFold[By <: Nat] = Fold[Nat, Nat] {
+    type Wrap[C <: Nat] = By#Compare[C]#eq
+    type Apply[A <: Nat, Acc <: Nat] = Wrap[Succ[Acc]]#If[_0, Succ[Acc], Nat]
+  }
+  type Mod[N <: Nat, M <: Nat] = N#FoldR[_0, Nat, ModFold[M]]
 }
 
 
@@ -177,3 +192,5 @@ type Is0[N <: Nat] = N#Match[ConstFalse, True, Bool]
 
 implicitly[_3 + _4 =:= _7]
 implicitly[_3 Mult _2 =:= _6]
+implicitly[(_3 + _1) Mult _2 =:= _8]
+// implicitly[_3 Mod _2 =:= _1] todo make this work, i don't why it is not provable
