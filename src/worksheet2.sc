@@ -43,3 +43,137 @@ example.funcList.toString
 
 
 // todo implement map and fold over these structures
+
+
+
+// Recursivity in scala's types
+trait Recurse {
+  type Next <: Recurse
+  type X[R <: Recurse] <: Int
+}
+
+trait RecurseA extends Recurse {
+  type Next = RecurseA
+  type X[R <: Recurse] = R#X[R#Next]
+}
+
+/*object Recurse {
+// infinite loop example: it seems like compiler knows how to detect it
+  type C = RecurseA#X[RecurseA]
+}*/
+
+
+// Type level booleans
+sealed trait Bool {
+  type If[T <: Up, F <: Up, Up] <: Up
+}
+trait True extends Bool {
+  type If[T <: Up, F <: Up, Up] = T
+}
+trait False extends Bool {
+  type If[T <: Up, F <: Up, Up] = F
+}
+
+object Bool {
+  type Not[A <: Bool] = A#If[False, True, Bool]
+  type &&[A <: Bool, B <: Bool] = A#If[B#If[B, B, Bool], A, Bool]
+  type ||[A <: Bool, B <: Bool] = A#If[A, B#If[B, B, Bool], Bool]
+  // <=> type ||[A <: Bool, B <: Bool] = Not[&&[Not[A], Not[B]]]
+}
+
+import Bool._
+
+type Rep[B <: Bool] = B#If[Int, String, Any]
+type OrToAnd[A <: Bool, B <: Bool] = Not[&&[Not[A], Not[B]]]
+
+implicitly[Rep[True] =:= Int]
+
+implicitly[True || False =:= OrToAnd[True, False]]
+implicitly[True || True =:= OrToAnd[True, False]]
+implicitly[False || False =:= Not[OrToAnd[True, False]]]
+
+
+// Naturals
+sealed trait Comparison {
+  type Match[IfLT <: Up, IfEQ <: Up, IfGT <: Up, Up] <: Up
+
+  type gt = Match[False, False, True, Bool]
+  type ge = Match[False, True, True, Bool]
+  type lt = Match[True, True, False, Bool]
+  type le = Match[False, False, True, Bool]
+  type eq = Match[False, True, False, Bool]
+}
+sealed trait GT extends Comparison {
+  type Match[IfLT <: Up, IfEQ <: Up, IfGT <: Up, Up] = IfGT
+}
+sealed trait LT extends Comparison {
+  type Match[IfLT <: Up, IfEQ <: Up, IfGT <: Up, Up] = IfLT
+}
+sealed trait EQ extends Comparison {
+  type Match[IfLT <: Up, IfEQ <: Up, IfGT <: Up, Up] = IfEQ
+}
+
+
+trait Fold[-Elem, Value] {
+  type Apply[E <: Elem, V <: Value] <: Value
+}
+
+
+sealed trait Nat {
+  type Match[NonZero[M <: Nat] <: Up, IfZero <: Up, Up] <: Up
+
+  type Compare[M <: Nat] <: Comparison
+
+  type FoldR[Init <: Type, Type, F <: Fold[Nat, Type]] <: Type
+}
+sealed trait _0 extends Nat {
+  type Match[NonZero[M <: Nat] <: Up, IfZero <: Up, Up] = IfZero
+
+  type ConstLT[A] = LT
+  type Compare[M <: Nat] = M#Match[ConstLT, EQ, Comparison]
+
+  type FoldR[Init <: Type, Type, F <: Fold[Nat, Type]] = Init
+}
+sealed trait Succ[N <: Nat] extends Nat {
+  type Match[NonZero[M <: Nat] <: Up, IfZero <: Up, Up] = NonZero[N]
+
+  type Compare[M <: Nat] = M#Match[N#Compare, GT, Comparison]
+
+  type FoldR[Init <: Type, Type, F <: Fold[Nat, Type]] =
+    F#Apply[Succ[N], N#FoldR[Init, Type, F]]
+}
+
+
+object Nat {
+  type _1 = Succ[_0]
+  type _2 = Succ[_1]
+  type _3 = Succ[_2]
+  type _4 = Succ[_3]
+  type _5 = Succ[_4]
+  type _6 = Succ[_5]
+  type _7 = Succ[_6]
+  type _8 = Succ[_7]
+  type _9 = Succ[_8]
+
+  type Incr = Fold[Nat, Nat] {
+    type Apply[A <: Nat, B <: Nat] = Succ[B]
+  }
+  type +[N <: Nat, M <: Nat] = N#FoldR[M, Nat, Incr]
+
+  // Ghost type (like Const but for 2-arity type constructor)
+  type Sum[By <: Nat] = Fold[Nat, Nat] {
+    type Apply[A <: Nat, Acc <: Nat] = By + Acc
+  }
+  type Mult[N <: Nat, M <: Nat] = N#FoldR[_0, Nat, Sum[M]]
+
+  // todo implement factorial
+}
+
+
+import Nat._
+
+type ConstFalse[A] = False
+type Is0[N <: Nat] = N#Match[ConstFalse, True, Bool]
+
+implicitly[_3 + _4 =:= _7]
+implicitly[_3 Mult _2 =:= _6]
