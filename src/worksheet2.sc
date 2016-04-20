@@ -194,3 +194,100 @@ implicitly[_3 + _4 =:= _7]
 implicitly[_3 Mult _2 =:= _6]
 implicitly[(_3 + _1) Mult _2 =:= _8]
 // implicitly[_3 Mod _2 =:= _1] todo make this work, i don't why it is not provable
+
+
+// Digit
+sealed trait Digit {
+  type Match[IfOne <: Up, IfZero <: Up, Up] <: Up
+  type Compare[N <: Digit] <: Comparison
+}
+sealed trait Zero extends Digit {
+  type Match[IfOne <: Up, IfZero <: Up, Up] = IfZero
+  type Compare[N <: Digit] = N#Match[GT, EQ, Comparison]
+}
+sealed trait One extends Digit {
+  type Match[IfOne <: Up, IfZero <: Up, Up] = IfOne
+  type Compare[N <: Digit] = N#Match[EQ, LT, Comparison]
+}
+
+sealed trait Dense {
+  type digit <: Digit
+  type tail <: Dense
+  type Inc <: Dense
+  type ShiftR <: Dense
+  type ShiftL <: Dense
+}
+sealed trait DCons[d <: Digit, T <: Dense] extends Dense {
+  type digit = d
+  type tail = T
+  type Inc = d#Match[Zero :: T#Inc, One :: T, Dense]
+  type ShiftR = tail
+  type ShiftL = Zero :: DCons[d, T]
+}
+sealed trait DNil extends Dense {
+  type digit = Nothing
+  type tail = Nothing
+  type Inc = One :: DNil
+  type ShiftR = DNil
+  type ShiftL = DNil
+}
+type ::[d <: Digit, T <: Dense] = DCons[d, T]
+
+object Dense {
+  type _0 = Zero :: DNil
+  type _1 = One :: DNil
+  type _2 = One :: Zero :: DNil
+  type _3 = One :: One :: DNil
+  type _4 = One :: Zero :: Zero :: DNil
+  type _5 = One :: Zero :: One :: DNil
+}
+
+
+
+// HList implementation
+// todo does not work try: https://github.com/harrah/up/blob/master/HList.scala
+sealed trait HList {
+  type Foldr[Value, F <: Fold[Any, Value], I <: Value] <: Value
+  def foldr[Value, F <: Fold[Any, Value], I <: Value](f: F, i: Value): Foldr[Value, F, I]
+
+  type Foldl[Value, F <: Fold[Any, Value], I <: Value] <: Value
+  def foldl[Value, F <: Fold[Any, Value], I <: Value](f: F, i: Value): Foldr[Value, F, I]
+}
+
+final case class HCons[H, T <: HList](head: H, tail: T) extends HList {
+  def ::[V](obj: V) = HCons(obj, this)
+
+  type Foldr[Value, F <: Fold[Any, Value], I <: Value] =
+    F#Apply[H, tail.Foldr[Value, F, I]]
+  def foldr[Value, F <: Fold[Any, Value], I <: Value](f: F, i: Value): Foldr[Value, F, I] =
+    f(head, tail.foldr[Value, F, I](f, i))
+
+  type Foldl[Value, F <: Fold[Any, Value], I <: Value] =
+    tail.Foldl[Value, F, F#Apply[H, I]]
+  def foldl[Value, F <: Fold[Any, Value], I <: Value](f: F, i: Value): Foldr[Value, F, I] =
+    tail.foldl[Value, F, F#Apply[H, I]](f, f(head, i))
+}
+
+sealed class HNil extends HList {
+  def ::[V](obj: V) = HCons(obj,this)
+
+  type Foldr[Value, F <: Fold[Any, Value], I <: Value] = I
+  def foldr[Value, F <: Fold[Any, Value], I <: Value](f: F, i: Value): Value = i
+
+  type Foldl[Value, F <: Fold[Any, Value], I <: Value] = I
+  def foldl[Value, F <: Fold[Any, Value], I <: Value](f: F, i: Value): Value = i
+}
+case object HNil extends HNil
+
+object HList {
+  type ::[H, T <: HList] = HCons[H, T]
+  val :: = HCons
+}
+
+import HList._
+val x = "hello" :: true :: 13 :: HNil
+
+val str: String = x.head
+val bool: Boolean = x.tail.head
+val i: Int = x.tail.tail.head
+val error: HNil = x.tail.tail.tail
